@@ -35,7 +35,7 @@ fileName_list = dir ( '*_Psycho.mat*');
 psycho_fit = arrayfun(@(x) zeros(9,3), [1:3]', 'UniformOutput', 0);  % For grand psychometric curve fitting, 3 conditions default
 psycho_fit_1st_half = psycho_fit; psycho_fit_2nd_half = psycho_fit;  % Divide sessioins as two halves
 psycho_fit_hist = repmat(psycho_fit,1,3);  %  History-dependent grand psychometric curves
-cur_depend_on_pre_unit = arrayfun(@(x) zeros(9,3), [1:9]', 'UniformOutput', 0);  % current trial depdent on condition and correct choice of previous trial
+cur_depend_on_pre_unit = arrayfun(@(x) zeros(9,3), [1:10]', 'UniformOutput', 0);  % current trial depdent on condition and correct choice of previous trial
 cur_depend_on_pre = arrayfun(@(x) cur_depend_on_pre_unit, reshape(1:9, 3,3), 'UniformOutput', 0);  % 3 pre_conds * 3 cur_conds
 cur_depend_on_pre_1st = cur_depend_on_pre;  cur_depend_on_pre_2nd = cur_depend_on_pre;
 fit_hist_psycho = cell(length(fileName_list),1);  temp_hist_psy_fit = fit_hist_psycho;
@@ -48,6 +48,7 @@ for sess = 1:length(fileName_list)
     
     unique_conditions = unique(raw(:,1));
     unique_headings = unique(raw(:, 3));
+    pre_headings = [unique_headings(1:5); 0 ;unique_headings(6:end)];   % Divide pre 0 heading into left choice and right choice
     
     cur_cond_pre_cond_ind = cell(length(unique_conditions), length(unique_conditions));
     
@@ -62,7 +63,6 @@ for sess = 1:length(fileName_list)
     if result.repetitionN < 15 % This constraint may be necessary if we divide sessions into two parts
         continue;
     end
-    
     
     cur_trials = raw(2:end, :);     % current trials considered need minus 1 if we look back the previous trial
     pre_trials = raw(1:end-1, :);
@@ -125,8 +125,15 @@ for sess = 1:length(fileName_list)
                 for pc = 1:length(unique_conditions)  % previous condition
                     pre_cond_ind = pre_trials(:, 1)==unique_conditions(pc);
                     
-                    for ph = 1:length(unique_headings) % ph, previous heading
-                        pre_head_correct_ind = (pre_trials(:, 3)==unique_headings(ph) & pre_trials(:, 5)==0);  % only consider those whose previous trials are correct
+                    for ph = 1:length(pre_headings) % ph, previous heading
+                        if pre_headings(ph) == 0
+                            pre_head_correct_ind = (pre_trials(:, 3) ==pre_headings(ph) & pre_trials(:,5) == 0 & pre_trials(:,4)==(ph-4));
+                        else
+                            pre_head_correct_ind = (pre_trials(:, 3)==pre_headings(ph) & pre_trials(:, 5)==0);  % only consider those whose previous trials are correct
+                        end
+                        %                         pre_head_correct_ind = (pre_trials(:, 3)==pre_headings(ph) & pre_trials(:, 5)==0);  % only consider those whose previous trials are correct
+                        %                         if ph == ceil(length(unique_headings)/2)
+                        %                             pre_head_correct_ind =
                         cur_cond_pre_cond_head_correct = pre_cond_ind & pre_head_correct_ind & cur_cond_ind;
                         
                         pc_cur_trial_selected = pre_correct_choice_ind & cur_cond_ind&cur_heading_ind;  % for history dependent curve, only need previous choice
@@ -270,7 +277,7 @@ for pair = 1:3
     for cc = 1: length(psycho_fit_1st_half)   % cc, current condition
         confidence_fit.(fN{pair*2-1}){cc}(:,2) = confidence_fit.(fN{pair*2-1}){cc}(:,2) ./ confidence_fit.(fN{pair*2-1}){cc}(:,3);  % change confidence_fit but reserve raw psycho_fit
         for pc = 1:size(cur_depend_on_pre,2)  % pc, previous condition
-            for ph = 1:length(grand_heading)
+            for ph = 1:length(pre_headings)
                 % Fitting
                 confidence_fit.(fN{pair*2}){cc,pc}{ph}(:,2) = confidence_fit.(fN{pair*2}){cc,pc}{ph}(:,2) ./ confidence_fit.(fN{pair*2}){cc,pc}{ph}(:,3);
                 [bb, tt] = cum_gaussfit_max1(confidence_fit.(fN{pair*2}){cc,pc}{ph}, method, 0);
@@ -304,6 +311,7 @@ outer_color = {'b'; 'r'; 'g'; 'k'};  % outer loop, ves-b, vis-r, comb-g, grand m
 titleX = {'Vest', 'Vis', 'Comb'};
 titleY = titleX;
 xxi = min(grand_heading) : 0.05 : max(grand_heading);
+pre_headings = [grand_heading(1:5) 0 grand_heading(6:end)];
 
 %  -------------  Grand mean comparing --------------------------
 % As negtive control
@@ -565,7 +573,9 @@ psy_fit; psy_field;
 
 lgd = {'ALL'; '1st half'; '2nd half'};
 heading_color = colormap(winter);
-inner_color = heading_color(end-round(linspace(1,64,9))+1, :);    % inner loop, different heading history
+inner_color = heading_color(end-round(linspace(1,64,length(pre_headings)))+1, :);    % inner loop, different heading history
+pre_heading = {'-10', '-5', '-2.5', '-1.25', '-0', '+0', '1.25','2.5','5','10'};
+pre_heading_str = cellfun(@(x) num2str(x), pre_heading, 'UniformOutput', false);
 
 for ds = 1:3 % all, 1st half , 2nd half
     set(figure(1961+ds*10),'name',['Confidence-dependent Psychometric Curves --' lgd{ds}], 'pos',[27 63 1500 900]); clf(1961+ds*10);
@@ -576,7 +586,7 @@ for ds = 1:3 % all, 1st half , 2nd half
         for pc = 1:length(unique_conditions)
             set(gcf, 'CurrentAxes', h(cc+3*(pc-1)));
             
-            for ph = 1:length(grand_heading)
+            for ph = 1:length(pre_headings)
                 plot(xxi, cum_gaussfit(confidn_psy_perf{ds}{cc,pc}{ph}, xxi), 'color', inner_color(ph,:), 'Linewidth', 2); hold on;
                 
                 ylim([0, 1]);
@@ -589,7 +599,7 @@ for ds = 1:3 % all, 1st half , 2nd half
             plot(xlim, [0.5 0.5], 'k--');
             
             if cc+3*(pc-1) == 7
-                legend(num2str(grand_heading(:)), 'Location', 'southeast', 'AutoUpdate', 'off');
+                legend(pre_heading_str, 'Location', 'southeast', 'AutoUpdate', 'off');
             end
             
             plot(psy_fit.(psy_field{ds}){cc}(:,1), psy_fit.(psy_field{ds}){cc}(:,2), 'k.', 'MarkerSize', 10);
@@ -620,10 +630,123 @@ end
 
 
 
+% ----------------- Confidence-dependent choice updating --------------------
+choice_updating;
+% using similar color as Lak paper
+white = [255 255 255]/255; % for 0 updating
+purple = [160 32 240]/255; % for positive updating
+orange = [255 128 0]/255; % for negtive updating
+color_data_neg = flipud((0:49)'/50 *(orange-white)+white);  color_data_posi = (0:49)'/50*(purple-white)+white;
+color_map = [color_data_neg;color_data_posi];
+cur_heading = grand_heading;
+
+for ds = 1:3
+    set(figure(1991+ds*10),'name',['Confidence-dependent Choice Updating --' lgd{ds}], 'pos',[27 63 1500 900]); clf(1991+ds*10);
+    h = tight_subplot(3,3, [.03 .03]);
+    
+    temp_maxi_updating = cellfun(@(x) max(max(abs(x))), choice_updating{ds});
+    maxi_updating{ds} = max(max(temp_maxi_updating));
+    
+    for cc = 1:length(unique_conditions)
+        for pc = 1:length(unique_conditions)
+            set(gcf, 'CurrentAxes', h(cc+(pc-1)*3));
+            
+            scale= choice_updating{ds}{cc, pc}/maxi_updating{ds};
+            sign_ind = sign(choice_updating{ds}{cc, pc});
+            %           color_data_0 = scale(sign_ind==0)* white;
+            
+            hm = heatmap(gcf,pre_heading,cur_heading,choice_updating{ds}{cc, pc}, 'colormap', color_map,...
+                'ColorLimits', [-maxi_updating{ds} maxi_updating{ds}], 'ColorbarVisible', 'off', 'GridVisible', 'off', 'CellLabelColor','none');
+            hm.FontSize = 13;
+            
+            if pc == 1
+                hm.YLabel = {['Current Condition: ', titleY{cc}] ;'Current Heading'};
+            end
+            
+            if cc ==1
+                hm.Title = ['Previous Condition: ', titleX{pc}];
+                if pc == 3
+                    hm.ColorbarVisible = 'on';
+                end
+            end
+            
+            if cc == 3
+                hm.XLabel = 'Previous Heading' ;
+            end
+            
+        end
+    end
+end
 
 
 
+% ---------------- Confidence-dependent choice updating curves --------------
+ph_depen_cu;
+dot_color = {'k', [0.75 0.75 0.75]}; % dots color
+line_color = {'k', 'r'};  % k, pre-left heading, gray, pre-right heading
+markers = {'o','s'};
+lgd = {'Hard', 'Easy','Left', 'Right'};
+nam = {'ALL'; '1st half'; '2nd half'};
+
+for ds = 1:3
+    set(figure(2021+ds*10),'name',['Confidence-dependent choice updating curves --', nam{ds}],'pos',[27 63 1500 900]); clf(2021+ds*10);
+    h= tight_subplot(3,3,[.05 .05],[.05 .1], [.1 .05]);
+    
+    temp_ph_maxi = cellfun(@(x) max(max(abs(x))), ph_depen_cu{ds});
+    ph_maxi(ds) = max(max(temp_ph_maxi));
+    
+    for cc = 1: length(unique_conditions)
+        for pc = 1: length(unique_conditions)
+            set(gcf, 'CurrentAxes', h(cc+(pc-1)*3));
+            
+            for i = Difficult : Easy
+                plot(pre_headings, ph_depen_cu{ds}{cc,pc}(i,:),...
+                    markers{i}, 'color', dot_color{i}, 'MarkerSize', 10, 'MarkerFaceColor', dot_color{i});
+                hold on;
+            end
+            
+            for i = Difficult : Easy
+                plot(pre_headings(1:length(pre_headings)/2),ph_depen_cu{ds}{cc,pc}(i,1:length(pre_headings)/2), line_color{1}, 'LineWidth', 2);
+                plot(pre_headings(length(pre_headings)/2+1:end),ph_depen_cu{ds}{cc,pc}(i,length(pre_headings)/2+1:end), line_color{2}, 'LineWidth', 2);
+            end
+            ylim([-ph_maxi(ds) ph_maxi(ds)]);
+            xlim([-11, 11]); xticks(min(grand_heading):2:max(grand_heading));
+            
+            if cc ==1
+                title(['Previous Condition: ', titleX{pc}]);
+                if pc == 3
+                    legend(lgd, 'Location', 'northeast', 'AutoUpdate', 'off');
+                end
+            end
+            
+            if pc == 1
+                ylabel({['Current Condition: ', titleY{cc}] ;'Updating'});
+            end
+            
+            if cc == 3
+                xlabel('Previous Heading');
+            end
+        end
+    end
+    SetFigure();
+end
 
 
-%     end
+
+%% Saving
+saveas(1921, 'Grand Mean Comparing Psycho', 'svg'); saveas(1921, 'Grand Mean Comparing Psycho', 'jpg'); 
+saveas(1931, 'Bias and Threshold Developing', 'svg'); saveas(1931, 'Bias and Threshold Developing', 'jpg'); 
+saveas(1941, 'Grand History-dependent Psycho', 'svg'); saveas(1941, 'Grand History-dependent Psycho', 'jpg'); 
+saveas(1951, 'Sessions History-dependent Perf Comparing', 'svg'); saveas(1951, 'Sessions History-dependent Perf Comparing', 'jpg'); 
+saveas(1961, 'Population History-dependent Perf Comparing', 'svg'); saveas(1961, 'Population History-dependent Perf Comparing', 'jpg'); 
+saveas(1971, 'Confidence-dependent Psycho_ALL', 'svg'); saveas(1971, 'Confidence-dependent Psycho_ALL', 'jpg'); 
+saveas(1981, 'Confidence-dependent Psycho_1st', 'svg'); saveas(1981, 'Confidence-dependent Psycho_1st', 'jpg'); 
+saveas(1991, 'Confidence-dependent Psycho_2nd', 'svg'); saveas(1991, 'Confidence-dependent Psycho_2nd', 'jpg'); 
+saveas(2001, 'Confidence-dependent Choice Updating_ALL', 'svg'); saveas(2001, 'Confidence-dependent Choice Updating_ALL', 'jpg'); 
+saveas(2011, 'Confidence-dependent Choice Updating_1st', 'svg'); saveas(2011, 'Confidence-dependent Choice Updating_1st', 'jpg'); 
+saveas(2021, 'Confidence-dependent Choice Updating_2nd', 'svg'); saveas(2021, 'Confidence-dependent Choice Updating_2nd', 'jpg'); 
+saveas(2031, 'Confidence-dependent Choice Updating Curves_ALL', 'svg'); saveas(2031, 'Confidence-dependent Choice Updating Curves_ALL', 'jpg'); 
+saveas(2041, 'Confidence-dependent Choice Updating Curves_1st', 'svg'); saveas(2041, 'Confidence-dependent Choice Updating Curves_1st', 'jpg'); 
+saveas(2051, 'Confidence-dependent Choice Updating Curves_2nd', 'svg'); saveas(2051, 'Confidence-dependent Choice Updating Curves_2nd', 'jpg'); 
+
 end
