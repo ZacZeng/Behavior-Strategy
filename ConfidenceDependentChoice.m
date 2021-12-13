@@ -28,7 +28,7 @@ hhi = -10: 0.05:10;  % for psychometric curve plotting
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Pool all well-trained sesstions
+%% Pool all well-trained sessions
 fileName_list = dir ( '*_Psycho.mat*');
 
 % Initiation
@@ -457,7 +457,9 @@ for option = Bias : Threshold
         for cc = 1: length(unique_conditions)
             temp_compare = Psy_hist_perf_2plot(cc:3:end, option+2*(comp_pair{cp}-1));
             
-            [hh, pp]= ttest(temp_compare(:,1), temp_compare(:,2));
+            [hh, pp]= ttest(temp_compare(:,1), temp_compare(:,2));   % paired t-test
+%             [~, ~, pp]= crosstab(temp_compare(:,1), temp_compare(:,2));   % chi-square test 
+
             hypoth{option}(cc, cp) = hh;
             population_p{option}(cc, cp) = pp;
             
@@ -538,6 +540,8 @@ for option = Bias : Threshold
         ylim([0 0.8]);
         
         popu_mean{option, cc} = mean(popu2plot{option, cc});
+%         popu_mean{option, cc} = median(popu2plot{option, cc});
+
         for pc = 1:3
             plot([popu_mean{option, cc}(1,pc) popu_mean{option, cc}(1,pc)], [0 0.8], 'color', pc_color{pc}, 'LineStyle', '--', 'Linewidth', 2.5);
         end
